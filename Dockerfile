@@ -9,7 +9,8 @@ COPY ebook_metadata_updater.py .
 
 ENV DIRECTORY=""
 ENV TEMPLATE=""
-ENV SUBJECT=""
 ENV TITLE=""
+ENV DESCRIPTION=""
+ENV SUBJECT=""
 
 ENTRYPOINT ["python", "ebook_metadata_updater.py"]

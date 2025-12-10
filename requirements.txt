@@ -1,1 +1,1 @@
-PyMuPDF
+pikepdf

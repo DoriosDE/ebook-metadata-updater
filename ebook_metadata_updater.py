@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-import fitz
+import pikepdf
 import re
 import datetime
 
@@ -64,122 +64,152 @@ def apply_template(template, fields):
     result = re.sub(pattern, replace_placeholder, result)
     return result
 
-def update_metadata(pdf_path, template, subject_template=None, title_template=None):
+def extract_fields_from_filename(filename, pattern, group_map):
+    """Extract metadata fields from filename using regex groups."""
+    match = re.match(pattern, filename)
+    if not match:
+        return None
+
+    fields = {'author': None, 'type': None, 'year': None, 'ausgabe': None, 'month': None, 'day': None}
+
+    for group_num, field_name in group_map.items():
+        fields[field_name] = match.group(group_num)
+
+    return fields
+
+def get_metadata(meta):
+    """Extract current metadata from PDF metadata object."""
+    return {
+        'creator': str(meta.get('dc:creator', '')),
+        'title': str(meta.get('dc:title', '')),
+        'subject': str(meta.get('dc:subject', '')),
+        'description': str(meta.get('dc:description', '')),
+        'date': str(meta.get('dc:date', '')),
+        'creatorTool': str(meta.get('xmp:CreatorTool', '')),
+        'createDate': str(meta.get('xmp:CreateDate', ''))
+    }
+
+def log_available_metadata(meta):
+    """Log all available metadata fields in PDF."""
+    print(f"Available metadata fields in PDF:")
+    for key in sorted(meta.keys()):
+        print(f"  {key}: {meta.get(key, '')}")
+    print()
+
+def build_title(title_template, fields, default_title):
+    """Build title from template or use default."""
+    if title_template:
+        return apply_template(title_template, fields)
+    return default_title
+
+def build_subject(subject_template, fields, default_subject):
+    """Build subject from template or use default."""
+    if subject_template:
+        return apply_template(subject_template, fields)
+    return default_subject
+
+def build_description(description_template, fields, default_description):
+    """Build description from template or use default."""
+    if description_template:
+        return apply_template(description_template, fields)
+    return default_description
+
+def update_metadata_fields(metadata, author, title, subject, description, creator_tool):
+    """Update metadata fields in the PDF."""
+    metadata['dc:creator'] = [author] if author else []
+    metadata['dc:title'] = title
+    metadata['dc:subject'] = f"{{\"{subject}\"}}" if subject else "{}"
+    metadata['dc:description'] = description
+    metadata['xmp:CreatorTool'] = creator_tool
+
+def print_metadata_comparison(current_metadata, new_metadata):
+    """Print formatted metadata comparison table."""
+    all_keys = set(current_metadata.keys()) | set(new_metadata.keys())
+
+    # Print header
+    print("─" * 128)
+    print(f"{'Status':<8} {'Property':<20} {'Current Value':<45} {'Updated Value':<45}")
+    print("─" * 128)
+
+    # Print rows
+    for key in sorted(all_keys):
+        old_val = str(current_metadata.get(key, '')).replace('\n', ' ')[:43]
+        new_val = str(new_metadata.get(key, '')).replace('\n', ' ')[:43]
+        is_updated = old_val != new_val
+        status_icon = "🔴" if is_updated else "🟢"
+        print(f"{status_icon:<8} {key:<20} {old_val:<45} {new_val:<45}")
+
+    print("─" * 128)
+
+def update_metadata(pdf_path, template, subject_template=None, title_template=None, description_template=None):
     try:
-        doc = fitz.open(pdf_path)
+        pdf = pikepdf.open(pdf_path, allow_overwriting_input=True)
     except Exception as e:
         print(f"Error opening {pdf_path}: {e}")
         return
 
-    metadata = doc.metadata
+    # Get current metadata for comparison
+    meta = pdf.open_metadata()
+
+    log_available_metadata(meta)
+
+    current_metadata = get_metadata(meta)
 
     filename = pdf_path.stem  # filename without extension
 
     # Convert template to regex pattern
     pattern, group_map = template_to_regex(template)
-    match = re.match(pattern, filename)
-    if match:
-        # Extract fields based on group mapping
-        author = None
-        type = None
-        year = None
-        ausgabe = None
-        month = None
-        day = None
+    fields = extract_fields_from_filename(filename, pattern, group_map)
 
-        for group_num, field_name in group_map.items():
-            value = match.group(group_num)
-            if field_name == 'author':
-                author = value
-            elif field_name == 'type':
-                type = value
-            elif field_name == 'year':
-                year = value
-            elif field_name == 'ausgabe':
-                ausgabe = value
-            elif field_name == 'month':
-                month = value
-            elif field_name == 'day':
-                day = value
-
-        # Build date string from year, month, day
-        date_str = None
-        if year and month and day:
-            date_str = f"{year}-{month}-{day}"
-
-        # Build title from template or use default
-        if title_template:
-            title = apply_template(title_template, {
-                'author': author or '',
-                'type': type or '',
-                'year': year or '',
-                'ausgabe': ausgabe or '',
-                'month': month or '',
-                'day': day or ''
-            })
-        else:
-            title = f"{ausgabe}/{year[-2:]}"
-
-        # Convert date to PDF format
-        pdf_date = None
-        try:
-            date_obj = datetime.date.fromisoformat(date_str)
-            pdf_date = f"D:{date_obj.strftime('%Y%m%d')}000000+00'00'"
-        except (ValueError, TypeError):
-            pass
-
-        # Update metadata
-        new_metadata = metadata.copy()
-        new_metadata['author'] = author
-        new_metadata['title'] = title
-        new_metadata['keywords'] = author
-
-        # Build subject from template or use default
-        if subject_template:
-            subject = apply_template(subject_template, {
-                'author': author or '',
-                'type': type or '',
-                'year': year or '',
-                'ausgabe': ausgabe or '',
-                'month': month or '',
-                'day': day or ''
-            })
-            new_metadata['subject'] = subject
-        else:
-            new_metadata['subject'] = f"{author} {type} {title}"
-        new_metadata['creator'] = ''
-        new_metadata['producer'] = ''
-        new_metadata['trapped'] = ''
-        if pdf_date:
-            new_metadata['creationDate'] = pdf_date
-            new_metadata['modDate'] = pdf_date
-
-        doc.set_metadata(new_metadata)
-
-        all_keys = set(metadata.keys()) | set(new_metadata.keys())
-
-        # Print header
-        print("─" * 128)
-        print(f"{'Status':<8} {'Property':<20} {'Current Value':<45} {'Updated Value':<45}")
-        print("─" * 128)
-
-        # Print rows
-        for key in sorted(all_keys):
-            old_val = str(metadata.get(key, '')).replace('\n', ' ')[:43]
-            new_val = str(new_metadata.get(key, '')).replace('\n', ' ')[:43]
-            is_updated = old_val != new_val
-            status_icon = "🔴" if is_updated else "🟢"
-            print(f"{status_icon:<8} {key:<20} {old_val:<45} {new_val:<45}")
-
-        print("─" * 128)
-    else:
-        # If filename doesn't match expected format, keep original metadata
+    if not fields:
         print(f"No update needed for {pdf_path} (filename format not recognized)")
-    if doc.can_save_incrementally():
-        doc.save(pdf_path, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+        return
+
+    author = fields['author']
+    type = fields['type']
+    year = fields['year']
+    ausgabe = fields['ausgabe']
+    month = fields['month']
+    day = fields['day']
+
+    # Build title and subject
+    field_values = {
+        'author': author or '',
+        'type': type or '',
+        'year': year or '',
+        'ausgabe': ausgabe or '',
+        'month': month or '',
+        'day': day or ''
+    }
+
+    default_title = f"{ausgabe}/{year[-2:]}" if ausgabe and year else ""
+    title = build_title(title_template, field_values, default_title)
+
+    default_subject = f"{author} {type} {title}"
+    subject = build_subject(subject_template, field_values, default_subject)
+
+    default_description = f"{author} {type} {title}"
+    description = build_description(description_template, field_values, default_description)
+
+    # Update metadata using pikepdf's XMP metadata API
+    with pdf.open_metadata() as metadata:
+        update_metadata_fields(metadata, author, title, subject, description, '')
+
+    # Get updated metadata for comparison
+    meta = pdf.open_metadata()
+    new_metadata = get_metadata(meta)
+
+    # Print metadata comparison
+    print_metadata_comparison(current_metadata, new_metadata)
+
+    # Save changes to PDF only if metadata was changed
+    if current_metadata != new_metadata:
+        pdf.save(pdf_path)
+        print("💾 Metadata saved successfully")
     else:
-        doc.save(pdf_path)
-    doc.close()
+        print("✅ No changes made to metadata")
+
+    pdf.close()
 
 def main():
     # Get arguments from environment variables
@@ -187,6 +217,7 @@ def main():
     template = os.getenv('TEMPLATE')
     subject_template = os.getenv('SUBJECT')
     title_template = os.getenv('TITLE')
+    description_template = os.getenv('DESCRIPTION')
 
     if not directory_path or not template:
         print("Error: Missing required environment variables")
@@ -196,9 +227,11 @@ def main():
         print("\nOptional:")
         print("  TITLE - Title metadata template (supports {author}, {type}, {year}, {ausgabe}, {month}, {day})")
         print("  SUBJECT - Subject metadata template (supports {author}, {type}, {year}, {ausgabe}, {month}, {day})")
+        print("  DESCRIPTION - Description metadata template (supports {author}, {type}, {year}, {ausgabe}, {month}, {day})")
         print("\nExample template: {author} {type} {year} - Ausgabe {ausgabe} ({year}-{month}-{day})")
         print("Example title: {ausgabe}/{year}")
         print("Example subject: {author} - {type} {ausgabe}/{year}")
+        print("Example description: {author} - {type} - Ausgabe {ausgabe}")
         return 1
 
     directory = Path(directory_path)
@@ -215,8 +248,7 @@ def main():
     for pdf_file in pdf_files:
         print(f"Processing {pdf_file}")
         try:
-            update_metadata(pdf_file, template, subject_template, title_template)
-            print(f"Updated metadata for {pdf_file}")
+            update_metadata(pdf_file, template, subject_template, title_template, description_template)
             print()
         except Exception as e:
             print(f"Error processing {pdf_file}: {e}")
