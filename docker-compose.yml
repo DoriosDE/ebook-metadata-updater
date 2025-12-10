@@ -1,0 +1,10 @@
+services:
+  ebook-metadata-updater:
+    build: .
+    volumes:
+      - .:/ebooks
+    environment:
+      DIRECTORY: "/ebooks"
+      TEMPLATE: "{author} {type} {year} - Ausgabe {ausgabe} ({year}-{month}-{day})"
+      SUBJECT: "{author} {type} {year}"
+      TITLE: "{ausgabe}/{year[-2:]}"
