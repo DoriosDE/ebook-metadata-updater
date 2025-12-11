@@ -240,7 +240,7 @@ def main():
         print("Error: Provided path is not a directory")
         return 1
 
-    pdf_files = list(directory.rglob('*.pdf'))
+    pdf_files = sorted(directory.rglob('*.pdf'))
     if not pdf_files:
         print("No PDF files found in the directory.")
         return 0
