@@ -118,7 +118,7 @@ def update_metadata_fields(metadata, author, title, subject, description, creato
     """Update metadata fields in the PDF."""
     metadata['dc:creator'] = [author] if author else []
     metadata['dc:title'] = title
-    metadata['dc:subject'] = f"{{\"{subject}\"}}" if subject else "{}"
+    metadata['dc:subject'] = {subject} if subject else set()
     metadata['dc:description'] = description
     metadata['xmp:CreatorTool'] = creator_tool
 
