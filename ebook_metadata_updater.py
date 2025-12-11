@@ -2,23 +2,22 @@ import os
 from pathlib import Path
 import pikepdf
 import re
-import datetime
 
 def template_to_regex(template):
     """
     Convert a flexible template to a regex pattern.
     Returns both the regex pattern and a mapping of group numbers to field names.
-    Placeholders: {author}, {type}, {year}, {ausgabe}, {month}, {day}
+    Placeholders: {author}, {title}, {type}, {year}, {ausgabe}, {month}, {day}
     """
     # Find all placeholders in the template in order
-    placeholder_pattern = r'\{(author|type|year|ausgabe|month|day)\}'
+    placeholder_pattern = r'\{(author|title|type|year|ausgabe|month|day)\}'
     placeholders = re.findall(placeholder_pattern, template)
 
     # Create mapping of group number to field name (only for capturing groups)
     group_map = {}
     group_num = 1
     for placeholder in placeholders:
-        if placeholder in ('author', 'type', 'year', 'ausgabe'):
+        if placeholder in ('author', 'title', 'type', 'year', 'ausgabe'):
             group_map[group_num] = placeholder
             group_num += 1
         elif placeholder == 'month':
@@ -31,6 +30,7 @@ def template_to_regex(template):
     # Escape special regex characters
     pattern = re.escape(template)
     pattern = pattern.replace(r'\{author\}', r'(.+?)')
+    pattern = pattern.replace(r'\{title\}', r'(.+?)')
     pattern = pattern.replace(r'\{type\}', r'(.+?)')
     pattern = pattern.replace(r'\{year\}', r'(\d{4})')
     pattern = pattern.replace(r'\{ausgabe\}', r'(\d+)')
@@ -70,7 +70,7 @@ def extract_fields_from_filename(filename, pattern, group_map):
     if not match:
         return None
 
-    fields = {'author': None, 'type': None, 'year': None, 'ausgabe': None, 'month': None, 'day': None}
+    fields = {'author': None, 'title': None, 'type': None, 'year': None, 'ausgabe': None, 'month': None, 'day': None}
 
     for group_num, field_name in group_map.items():
         fields[field_name] = match.group(group_num)
@@ -166,35 +166,37 @@ def update_metadata(pdf_path, template, subject_template=None, title_template=No
         print(f"No update needed for {pdf_path} (filename format not recognized)")
         return
 
-    author = fields['author']
-    type = fields['type']
-    year = fields['year']
-    ausgabe = fields['ausgabe']
-    month = fields['month']
-    day = fields['day']
+    author_field = fields['author']
+    type_field = fields['type']
+    year_field = fields['year']
+    ausgabe_field = fields['ausgabe']
+    month_field = fields['month']
+    day_field = fields['day']
+    title_field = fields['title']
 
     # Build title and subject
     field_values = {
-        'author': author or '',
-        'type': type or '',
-        'year': year or '',
-        'ausgabe': ausgabe or '',
-        'month': month or '',
-        'day': day or ''
+        'author': author_field or '',
+        'type': type_field or '',
+        'year': year_field or '',
+        'ausgabe': ausgabe_field or '',
+        'month': month_field or '',
+        'day': day_field or '',
+        'title': title_field or ''
     }
 
-    default_title = f"{ausgabe}/{year[-2:]}" if ausgabe and year else ""
+    default_title = f"{ausgabe_field}/{year_field[-2:]}" if ausgabe_field and year_field else ""
     title = build_title(title_template, field_values, default_title)
 
-    default_subject = f"{author} {type} {title}"
+    default_subject = f"{author_field} {type_field} {title}"
     subject = build_subject(subject_template, field_values, default_subject)
 
-    default_description = f"{author} {type} {title}"
+    default_description = f"{author_field} {type_field} {title}"
     description = build_description(description_template, field_values, default_description)
 
     # Update metadata using pikepdf's XMP metadata API
     with pdf.open_metadata() as metadata:
-        update_metadata_fields(metadata, author, title, subject, description, '')
+        update_metadata_fields(metadata, author_field, title, subject, description, '')
 
     # Get updated metadata for comparison
     meta = pdf.open_metadata()
