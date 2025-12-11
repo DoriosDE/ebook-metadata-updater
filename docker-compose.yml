@@ -5,7 +5,7 @@ services:
       - .:/ebooks
     environment:
       DIRECTORY: "/ebooks"
-      TEMPLATE: "{author} {type} {year} - Ausgabe {ausgabe} ({year}-{month}-{day})"
+      TEMPLATE: "{author} {type} {year} - Ausgabe {ausgabe} ({date_year}-{date_month}-{date_day})"
       TITLE: "{ausgabe}/{year[-2:]}"
       DESCRIPTION: "{author} {type} {ausgabe}/{year[-2:]}"
       SUBJECT: "{author} {type}"

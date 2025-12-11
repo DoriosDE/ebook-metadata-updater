@@ -7,24 +7,18 @@ def template_to_regex(template):
     """
     Convert a flexible template to a regex pattern.
     Returns both the regex pattern and a mapping of group numbers to field names.
-    Placeholders: {author}, {title}, {type}, {year}, {ausgabe}, {month}, {day}
+    Placeholders: {author}, {title}, {type}, {year}, {ausgabe}, {date_year}, {date_month}, {date_day}
     """
     # Find all placeholders in the template in order
-    placeholder_pattern = r'\{(author|title|type|year|ausgabe|month|day)\}'
+    placeholder_pattern = r'\{(author|title|type|year|ausgabe|date_year|date_month|date_day)\}'
     placeholders = re.findall(placeholder_pattern, template)
 
     # Create mapping of group number to field name (only for capturing groups)
     group_map = {}
     group_num = 1
     for placeholder in placeholders:
-        if placeholder in ('author', 'title', 'type', 'year', 'ausgabe'):
+        if placeholder in ('author', 'title', 'type', 'year', 'ausgabe', 'date_year', 'date_month', 'date_day'):
             group_map[group_num] = placeholder
-            group_num += 1
-        elif placeholder == 'month':
-            group_map[group_num] = 'month'
-            group_num += 1
-        elif placeholder == 'day':
-            group_map[group_num] = 'day'
             group_num += 1
 
     # Escape special regex characters
@@ -34,8 +28,9 @@ def template_to_regex(template):
     pattern = pattern.replace(r'\{type\}', r'(.+?)')
     pattern = pattern.replace(r'\{year\}', r'(\d{4})')
     pattern = pattern.replace(r'\{ausgabe\}', r'(\d+)')
-    pattern = pattern.replace(r'\{month\}', r'(\d{2})')
-    pattern = pattern.replace(r'\{day\}', r'(\d{2})')
+    pattern = pattern.replace(r'\{date_year\}', r'(\d{4})')
+    pattern = pattern.replace(r'\{date_month\}', r'(\d{2})')
+    pattern = pattern.replace(r'\{date_day\}', r'(\d{2})')
 
     return f"^{pattern}$", group_map
 
@@ -70,7 +65,7 @@ def extract_fields_from_filename(filename, pattern, group_map):
     if not match:
         return None
 
-    fields = {'author': None, 'title': None, 'type': None, 'year': None, 'ausgabe': None, 'month': None, 'day': None}
+    fields = {'author': None, 'title': None, 'type': None, 'year': None, 'ausgabe': None, 'date_year': None, 'date_month': None, 'date_day': None}
 
     for group_num, field_name in group_map.items():
         fields[field_name] = match.group(group_num)
@@ -169,9 +164,10 @@ def update_metadata(pdf_path, template, subject_template=None, title_template=No
     author_field = fields['author']
     type_field = fields['type']
     year_field = fields['year']
+    date_year_field = fields['date_year']
     ausgabe_field = fields['ausgabe']
-    month_field = fields['month']
-    day_field = fields['day']
+    date_month_field = fields['date_month']
+    date_day_field = fields['date_day']
     title_field = fields['title']
 
     # Build title and subject
@@ -179,9 +175,10 @@ def update_metadata(pdf_path, template, subject_template=None, title_template=No
         'author': author_field or '',
         'type': type_field or '',
         'year': year_field or '',
+        'date_year': date_year_field or '',
         'ausgabe': ausgabe_field or '',
-        'month': month_field or '',
-        'day': day_field or '',
+        'date_month': date_month_field or '',
+        'date_day': date_day_field or '',
         'title': title_field or ''
     }
 
@@ -229,10 +226,10 @@ def main():
         print("  DIRECTORY - Path to directory containing PDF files")
         print("  TEMPLATE - Filename template pattern")
         print("\nOptional:")
-        print("  TITLE - Title metadata template (supports {author}, {type}, {year}, {ausgabe}, {month}, {day})")
-        print("  SUBJECT - Subject metadata template (supports {author}, {type}, {year}, {ausgabe}, {month}, {day})")
-        print("  DESCRIPTION - Description metadata template (supports {author}, {type}, {year}, {ausgabe}, {month}, {day})")
-        print("\nExample template: {author} {type} {year} - Ausgabe {ausgabe} ({year}-{month}-{day})")
+        print("  TITLE - Title metadata template (supports {author}, {type}, {year}, {ausgabe}, {date_year}, {date_month}, {date_day})")
+        print("  SUBJECT - Subject metadata template (supports {author}, {type}, {year}, {ausgabe}, {date_year}, {date_month}, {date_day})")
+        print("  DESCRIPTION - Description metadata template (supports {author}, {type}, {year}, {ausgabe}, {date_year}, {date_month}, {date_day})")
+        print("\nExample template: {author} {type} {year} - Ausgabe {ausgabe} ({date_year}-{date_month}-{date_day})")
         print("Example title: {ausgabe}/{year}")
         print("Example subject: {author} - {type} {ausgabe}/{year}")
         print("Example description: {author} - {type} - Ausgabe {ausgabe}")
