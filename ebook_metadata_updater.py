@@ -78,15 +78,15 @@ def extract_fields_from_filename(filename, pattern, group_map):
     return fields
 
 def get_metadata(meta):
-    """Extract current metadata from PDF metadata object."""
+    """Extract metadata from PDF metadata object."""
     return {
-        'creator': str(meta.get('dc:creator', '')),
-        'title': str(meta.get('dc:title', '')),
-        'subject': str(meta.get('dc:subject', '')),
-        'description': str(meta.get('dc:description', '')),
-        'date': str(meta.get('dc:date', '')),
-        'creatorTool': str(meta.get('xmp:CreatorTool', '')),
-        'createDate': str(meta.get('xmp:CreateDate', ''))
+        'dc:creator': str(meta.get('dc:creator', '')),
+        'dc:date': str(meta.get('dc:date', '')),
+        'dc:description': str(meta.get('dc:description', '')),
+        'dc:subject': str(meta.get('dc:subject', '')),
+        'dc:title': str(meta.get('dc:title', '')),
+        'xmp:CreateDate': str(meta.get('xmp:CreateDate', '')),
+        'xmp:CreatorTool': str(meta.get('xmp:CreatorTool', ''))
     }
 
 def log_available_metadata(meta):
@@ -117,9 +117,9 @@ def build_description(description_template, fields, default_description):
 def update_metadata_fields(metadata, author, title, subject, description, creator_tool):
     """Update metadata fields in the PDF."""
     metadata['dc:creator'] = [author] if author else []
-    metadata['dc:title'] = title
-    metadata['dc:subject'] = {subject} if subject else set()
     metadata['dc:description'] = description
+    metadata['dc:subject'] = {subject} if subject else set()
+    metadata['dc:title'] = title
     metadata['xmp:CreatorTool'] = creator_tool
 
 def print_metadata_comparison(current_metadata, new_metadata):
