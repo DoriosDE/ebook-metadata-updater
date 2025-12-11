@@ -141,7 +141,7 @@ def print_metadata_comparison(current_metadata, new_metadata):
 
     print("─" * 128)
 
-def update_metadata(pdf_path, template, subject_template=None, title_template=None, description_template=None):
+def update_metadata(pdf_path, template, subject_template=None, title_template=None, description_template=None, log_available=False):
     try:
         pdf = pikepdf.open(pdf_path, allow_overwriting_input=True)
     except Exception as e:
@@ -151,7 +151,8 @@ def update_metadata(pdf_path, template, subject_template=None, title_template=No
     # Get current metadata for comparison
     meta = pdf.open_metadata()
 
-    log_available_metadata(meta)
+    if log_available:
+        log_available_metadata(meta)
 
     current_metadata = get_metadata(meta)
 
@@ -218,6 +219,7 @@ def main():
     subject_template = os.getenv('SUBJECT')
     title_template = os.getenv('TITLE')
     description_template = os.getenv('DESCRIPTION')
+    log_available = os.getenv('LOG_AVAILABLE', 'false').lower() == 'true'
 
     if not directory_path or not template:
         print("Error: Missing required environment variables")
@@ -248,7 +250,7 @@ def main():
     for pdf_file in pdf_files:
         print(f"Processing {pdf_file}")
         try:
-            update_metadata(pdf_file, template, subject_template, title_template, description_template)
+            update_metadata(pdf_file, template, subject_template, title_template, description_template, log_available)
             print()
         except Exception as e:
             print(f"Error processing {pdf_file}: {e}")

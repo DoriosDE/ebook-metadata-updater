@@ -9,3 +9,4 @@ services:
       TITLE: "{ausgabe}/{year[-2:]}"
       DESCRIPTION: "{author} {type} {ausgabe}/{year[-2:]}"
       SUBJECT: "{author} {type}"
+      LOG_AVAILABLE: false
