@@ -254,6 +254,8 @@ def main():
             print(f"Error processing {pdf_file}: {e}")
             print()
 
+    print("All done.")
+
     return 0
 
 if __name__ == "__main__":
